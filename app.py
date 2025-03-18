@@ -48,6 +48,7 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+.*', '', row[2]).strip()
                         nama_barang = re.sub(r'Potongan Harga = Rp [\d.,]+', '', nama_barang).strip()
                         nama_barang = re.sub(r'PPnBM \(\d+,?\d*%\) = Rp [\d.,]+', '', nama_barang).strip()
+                        nama_barang = re.sub(r'Tanggal:\s*\d{2}/\d{2}/\d{4}', '', nama_barang).strip()
                         
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                         if harga_qty_info:
@@ -57,19 +58,6 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         else:
                             harga, qty, unit = 0.0, 0.0, "Unknown"
                         
-                        total = harga * qty
-                        ppn = round(total * 0.11, 2)
-                        dpp = total - ppn
-                        data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn])
-            else:
-                # Jika extract_table() gagal, gunakan extract_text()
-                text_rows = text.split("\n")
-                for line in text_rows:
-                    match = re.search(r'^(\d{1,3})\s+600600\s+(.+?)\s+Rp\s+([\d.,]+)\sx\s+([\d.,]+)\s+(\w+)', line)
-                    if match:
-                        nomor, nama_barang, harga, qty, unit = match.groups()
-                        harga = float(harga.replace('.', '').replace(',', '.'))
-                        qty = float(qty.replace('.', '').replace(',', '.'))
                         total = harga * qty
                         ppn = round(total * 0.11, 2)
                         dpp = total - ppn
