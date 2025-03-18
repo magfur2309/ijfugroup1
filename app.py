@@ -59,9 +59,9 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur, expected_item_count):
                     if len(row) >= 4:
                         if row[0].isdigit():
                             current_number = row[0]
-                        nama_barang = " ".join(row[2].split("\n")).strip()
+                        nama_barang = " ".join(row[2].split("\n")).strip() if row[2] else "Tidak ditemukan"
                         
-                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
+                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2]) if row[2] else None
                         if harga_qty_info:
                             harga = int(float(harga_qty_info.group(1).replace('.', '').replace(',', '.')))
                             qty = int(float(harga_qty_info.group(2).replace('.', '').replace(',', '.')))
@@ -69,7 +69,7 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur, expected_item_count):
                         else:
                             harga, qty, unit = 0, 0, "Unknown"
                         
-                        potongan_harga_match = re.search(r'Potongan Harga\s*=\s*Rp\s*([\d.,]+)', row[2])
+                        potongan_harga_match = re.search(r'Potongan Harga\s*=\s*Rp\s*([\d.,]+)', row[2]) if row[2] else None
                         potongan_harga = int(float(potongan_harga_match.group(1).replace('.', '').replace(',', '.'))) if potongan_harga_match else 0
                         
                         total = (harga * qty) - potongan_harga
