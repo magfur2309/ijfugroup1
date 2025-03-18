@@ -34,6 +34,10 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                             harga = int(harga_qty_info.group(1).replace('.', '').replace(',', ''))
                             qty = int(harga_qty_info.group(2).replace('.', '').replace(',', ''))
                             unit = harga_qty_info.group(3).capitalize()
+                            
+                            # Pastikan satuan 'Kg' tetap terbaca dengan benar
+                            if unit.lower() in ['kg', 'kilogram']:
+                                unit = 'Kilogram'
                         else:
                             harga, qty, unit = 0, 0, "Tidak diketahui"
                         data.append([nama_barang, qty, unit, harga])
