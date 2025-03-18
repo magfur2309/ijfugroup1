@@ -23,13 +23,11 @@ def find_invoice_date(pdf_file):
 def extract_data_from_pdf(pdf_file, tanggal_faktur):
     data = []
     no_fp, nama_penjual, nama_pembeli = None, None, None
-    incomplete_row = None  # Untuk menyimpan baris yang belum lengkap
     
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
             if text:
-                # Ekstraksi data header (No FP, Nama Penjual, Nama Pembeli)
                 no_fp_match = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
                 if no_fp_match:
                     no_fp = no_fp_match.group(1)
@@ -46,74 +44,22 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             table = page.extract_table()
             if table:
                 for row in table:
-                 if len(row) > 2:  # Pastikan row memiliki setidaknya 3 elemen
-    nama_barang = row[2] if row[2] else "Tidak ditemukan"
-
-    # Hapus teks "Nama Barang Kena Pajak / Jasa Kena Pajak" dari nama barang
-    nama_barang = re.sub(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*', '', nama_barang, flags=re.IGNORECASE)
-
-    print(nama_barang)  # Debugging untuk memastikan hasilnya benar
-
-
-    # Hapus teks "Nama Barang Kena Pajak / Jasa Kena Pajak"
-    nama_barang = re.sub(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*', '', nama_barang, flags=re.IGNORECASE)
-
-    harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', nama_barang)
-    if harga_qty_info:
-        harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
-        qty = float(harga_qty_info.group(2).replace('.', '').replace(',', '.'))
-        unit = harga_qty_info.group(3)
-    else:
-        harga, qty, unit = 0.0, 0.0, "Unknown"
-
-    total = harga * qty
-    ppn = round(total * 0.11, 2)
-    dpp = total - ppn
-
-    data.append([
-        no_fp or "Tidak ditemukan", 
-        nama_penjual or "Tidak ditemukan", 
-        nama_pembeli or "Tidak ditemukan", 
-        tanggal_faktur, 
-        nama_barang, 
-        qty, 
-        unit, 
-        harga, 
-        total, 
-        dpp, 
-        ppn
-    ])
-
-
-    data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", 
-                 nama_pembeli or "Tidak ditemukan", tanggal_faktur, 
-                 nama_barang, qty, unit, harga, total, dpp, ppn])
-
+                    if len(row) >= 4 and row[0].isdigit():
+                        nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+', '', row[2]).strip()
                         
-                        # Jika baris sebelumnya belum lengkap, gabungkan
-                        if incomplete_row:
-                            incomplete_row[4] += f" {nama_barang}"  # Gabungkan Nama Barang
-                            incomplete_row[5] += qty
-                            incomplete_row[7] += harga
-                            incomplete_row[8] += total
-                            incomplete_row[9] += dpp
-                            incomplete_row[10] += ppn
-                            data.append(incomplete_row)
-                            incomplete_row = None
+                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
+                        if harga_qty_info:
+                            harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
+                            qty = float(harga_qty_info.group(2).replace('.', '').replace(',', '.'))
+                            unit = harga_qty_info.group(3)
                         else:
-                            # Simpan sebagai baris baru
-                            data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", 
-                                         nama_pembeli or "Tidak ditemukan", tanggal_faktur, 
-                                         nama_barang, qty, unit, harga, total, dpp, ppn])
-                    else:
-                        # Jika baris tidak lengkap, simpan sementara
-                        incomplete_row = [no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", 
-                                          nama_pembeli or "Tidak ditemukan", tanggal_faktur, 
-                                          row[2] if len(row) > 2 and row[2] else "Tidak ditemukan", 
-                                          0, "Unknown", 0, 0, 0, 0]  # Data sementara
-                
+                            harga, qty, unit = 0.0, 0.0, "Unknown"
+                        
+                        total = harga * qty
+                        ppn = round(total * 0.11, 2)
+                        dpp = total - ppn
+                        data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn])
     return data
-
 
 def login_page():
     users = {
