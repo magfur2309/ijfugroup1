@@ -44,24 +44,29 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             table = page.extract_table()
             if table:
                 for row in table:
-                    if row and row[0] and re.match(r'^\d+$', row[0]):
-                        nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+.*', '', row[2]).strip()
-                        nama_barang = re.sub(r'Potongan Harga = Rp [\d.,]+', '', nama_barang).strip()
-                        nama_barang = re.sub(r'PPnBM \(\d+,?\d*%\) = Rp [\d.,]+', '', nama_barang).strip()
-                        nama_barang = re.sub(r'Tanggal:\s*\d{2}/\d{2}/\d{4}', '', nama_barang).strip()
+                    if len(row) >= 4 and row[0].isdigit():
+                        nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+', '', row[2]).strip()
                         
+                        # Ekstrak harga, qty, dan unit
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                         if harga_qty_info:
                             harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
                             qty = float(harga_qty_info.group(2).replace('.', '').replace(',', '.'))
                             unit = harga_qty_info.group(3)
                         else:
-                            harga, qty, unit = 0.0, 0.0, "Unknown"
+                            # Jika format tidak sesuai, coba format alternatif
+                            harga_qty_info = re.search(r'Rp ([\d.,]+)', row[2])
+                            if harga_qty_info:
+                                harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
+                                qty = 1.0  # Default quantity jika tidak ditemukan
+                                unit = "Unknown"
+                            else:
+                                harga, qty, unit = 0.0, 0.0, "Unknown"
                         
                         total = harga * qty
                         ppn = round(total * 0.11, 2)
                         dpp = total - ppn
-                        data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn])
+                        data.append([row[0], no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn])
     return data
 
 def login_page():
@@ -96,12 +101,24 @@ def main_app():
             all_data.extend(extracted_data)
         
         if all_data:
-            df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Tanggal Faktur", "Nama Barang", "Qty", "Satuan", "Harga", "Total", "DPP", "PPN"])
-            df.index += 1  
+            df = pd.DataFrame(all_data, columns=["No Urut", "No FP", "Nama Penjual", "Nama Pembeli", "Tanggal Faktur", "Nama Barang", "Qty", "Satuan", "Harga", "Total", "DPP", "PPN"])
+            df.index += 1  # Mulai nomor index dari 1
+            
+            # Format angka menjadi 2 desimal
+            df[["Qty", "Harga", "Total", "DPP", "PPN"]] = df[["Qty", "Harga", "Total", "DPP", "PPN"]].applymap(lambda x: f"{x:.2f}")
             
             st.write("### Pratinjau Data yang Diekstrak")
             st.dataframe(df)
             
+            # Menampilkan data spesifik untuk nomor urut 33
+            st.write("### Data untuk Nomor Urut 33")
+            row_33 = df[df["No Urut"] == "33"]
+            if not row_33.empty:
+                st.write(row_33)
+            else:
+                st.warning("Data untuk nomor urut 33 tidak ditemukan.")
+            
+            # Unduh data ke Excel
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 df.to_excel(writer, index=True, sheet_name='Faktur Pajak')
