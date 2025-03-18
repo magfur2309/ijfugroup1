@@ -60,7 +60,6 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         dpp = total - ppn
                         data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn])
     return data
-
 def login_page():
     users = {
         "user1": hashlib.sha256("ijfugroup1".encode()).hexdigest(),
