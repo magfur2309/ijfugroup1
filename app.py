@@ -44,8 +44,8 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             table = page.extract_table()
             if table:
                 for row in table:
-                    if len(row) >= 4 and row[0].isdigit():
-                        nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+', '', row[2]).strip()
+                    if row and row[0] and re.match(r'^\d+$', row[0]):
+                        nama_barang = row[2].strip() if len(row) > 2 else "Tidak ditemukan"
                         
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                         if harga_qty_info:
@@ -55,6 +55,20 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         else:
                             harga, qty, unit = 0.0, 0.0, "Unknown"
                         
+                        total = harga * qty
+                        ppn = round(total * 0.11, 2)
+                        dpp = total - ppn
+                        data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn])
+            
+            else:
+                # Jika extract_table() gagal, gunakan extract_text()
+                text_rows = text.split("\n")
+                for line in text_rows:
+                    match = re.search(r'^(\d{1,3})\s+600600\s+(.+?)\s+Rp\s+([\d.,]+)\sx\s+([\d.,]+)\s+(\w+)', line)
+                    if match:
+                        nomor, nama_barang, harga, qty, unit = match.groups()
+                        harga = float(harga.replace('.', '').replace(',', '.'))
+                        qty = float(qty.replace('.', '').replace(',', '.'))
                         total = harga * qty
                         ppn = round(total * 0.11, 2)
                         dpp = total - ppn
@@ -95,9 +109,6 @@ def main_app():
         if all_data:
             df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Tanggal Faktur", "Nama Barang", "Qty", "Satuan", "Harga", "Total", "DPP", "PPN"])
             df.index += 1  
-            
-            # Format angka menjadi 2 desimal
-            df[["Qty", "Harga", "Total", "DPP", "PPN"]] = df[["Qty", "Harga", "Total", "DPP", "PPN"]].applymap(lambda x: f"{x:.2f}")
             
             st.write("### Pratinjau Data yang Diekstrak")
             st.dataframe(df)
