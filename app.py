@@ -23,7 +23,6 @@ def find_invoice_date(pdf_file):
 def extract_data_from_pdf(pdf_file, tanggal_faktur):
     data = []
     no_fp, nama_penjual, nama_pembeli = None, None, None
-    temp_row = None
     
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
@@ -62,14 +61,7 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         total = harga * qty
                         ppn = round(total * 0.11, 2)
                         dpp = total - ppn
-                        if temp_row:
-                            temp_row[4] += " " + nama_barang
-                            temp_row[5] += qty
-                        else:
-                            temp_row = [no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn]
-                            data.append(temp_row)
-                    elif row and temp_row:
-                        temp_row[4] += " " + row[2].strip()
+                        data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn])
     return data
 
 def login_page():
