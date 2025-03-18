@@ -49,6 +49,7 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                     if len(row) >= 4:
                         if row[0] and row[0].strip().isdigit():  # Jika nomor urut valid ditemukan
                             current_no = row[0].strip()
+                            previous_row = None  # Reset jika ada nomor urut baru
                         
                         nama_barang = row[2].strip() if row[2] else ""
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', nama_barang)
