@@ -48,6 +48,7 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         nama_barang = re.sub(r'Tanggal:\s*\d{2}/\d{2}/\d{4}', '', row[2]).strip()
                         nama_barang = re.sub(r'PPnBM \(\d+,?\d*%\) = Rp [\d.,]+', '', nama_barang).strip()
                         nama_barang = re.sub(r'Potongan Harga = Rp [\d.,]+', '', nama_barang).strip()
+                        nama_barang = re.sub(r'\bkilogram\b', '', nama_barang, flags=re.IGNORECASE).strip()
                         
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                         if harga_qty_info:
