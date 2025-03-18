@@ -43,19 +43,27 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             table = page.extract_table()
             if table:
                 for row in table:
-                    if len(row) >= 4:
-                        nomor_urut = row[0].strip() if row[0] and re.match(r'\d+', row[0].strip()) else None
-                        nama_barang = row[2].strip() if row[2] else ""
-                        harga = row[3].strip() if row[3] else ""
-                        qty = row[4].strip() if row[4] else ""
-                        satuan = row[5].strip() if row[5] else ""
-                        total = row[6].strip() if row[6] else ""
-                        dpp = row[7].strip() if row[7] else ""
-                        ppn = row[8].strip() if row[8] else ""
-                        
-                        if nomor_urut:
-                            data.append([nomor_urut, no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, satuan, harga, total, dpp, ppn])
+                    if len(row) < 9:  # Pastikan baris memiliki setidaknya 9 kolom
+                        continue  # Lewati baris yang tidak lengkap
+
+                    nomor_urut = row[0].strip() if row[0] else None
+                    nama_barang = row[2].strip() if row[2] else ""
+                    harga = row[3].strip() if row[3] else ""
+                    qty = row[4].strip() if row[4] else ""
+                    satuan = row[5].strip() if row[5] else ""
+                    total = row[6].strip() if row[6] else ""
+                    dpp = row[7].strip() if row[7] else ""
+                    ppn = row[8].strip() if row[8] else ""
+
+                    if nomor_urut:
+                        data.append([
+                            nomor_urut, no_fp or "Tidak ditemukan", 
+                            nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", 
+                            tanggal_faktur, nama_barang, qty, satuan, harga, total, dpp, ppn
+                        ])
+
     return data
+
 
 def login_page():
     users = {
