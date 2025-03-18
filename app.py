@@ -25,7 +25,7 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
     no_fp, nama_penjual, nama_pembeli = None, None, None
     current_no = None  # Menyimpan nomor urut terakhir yang valid
     previous_row = None
-    missing_rows = []  # Menyimpan nomor urut yang terpisah
+    pending_no = None  # Menyimpan nomor urut yang belum memiliki data barang
     
     with pdfplumber.open(pdf_file) as pdf:
         for page_num, page in enumerate(pdf.pages):
@@ -50,11 +50,15 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                     if len(row) >= 4:
                         if row[0] and re.match(r'\d+', row[0].strip()):  # Jika nomor urut valid ditemukan
                             current_no = row[0].strip()
-                            previous_row = None  # Reset jika ada nomor urut baru
-                        elif current_no and not row[0]:  # Jika tidak ada nomor urut, simpan dalam missing_rows
-                            missing_rows.append((current_no, row))
+                            pending_no = current_no  # Simpan nomor jika barangnya ada di baris lain
                         
                         nama_barang = row[2].strip() if row[2] else ""
+                        if pending_no and not nama_barang:  # Jika nomor urut ada tapi belum ada barangnya
+                            continue  # Lewati baris ini dan tunggu barang di baris berikutnya
+                        elif pending_no and nama_barang:
+                            current_no = pending_no  # Gunakan nomor urut yang tertunda
+                            pending_no = None  # Reset pending nomor
+                        
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', nama_barang)
                         
                         if harga_qty_info:
@@ -73,12 +77,6 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         else:
                             previous_row = [current_no, no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn]
                             data.append(previous_row)
-    
-    # Menambahkan kembali baris yang terpisah ke dalam data utama
-    for missing_no, row in missing_rows:
-        for record in data:
-            if record[0] == missing_no:
-                record[5] += " " + (row[2].strip() if row[2] else "")
     
     return data
 
