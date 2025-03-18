@@ -23,9 +23,8 @@ def find_invoice_date(pdf_file):
 def extract_data_from_pdf(pdf_file, tanggal_faktur):
     data = []
     no_fp, nama_penjual, nama_pembeli = None, None, None
-    current_no = None  # Menyimpan nomor urut terakhir yang valid
-    previous_row = None
     pending_no = None  # Menyimpan nomor urut yang belum memiliki data barang
+    pending_data = {}  # Menyimpan data yang terpisah agar dapat digabungkan
     
     with pdfplumber.open(pdf_file) as pdf:
         for page_num, page in enumerate(pdf.pages):
@@ -48,37 +47,31 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             if table:
                 for row in table:
                     if len(row) >= 4:
-                        if row[0] and re.match(r'\d+', row[0].strip()):  # Jika nomor urut valid ditemukan
-                            current_no = row[0].strip()
-                            pending_no = current_no  # Simpan nomor jika barangnya ada di baris lain
-                        
+                        nomor_urut = row[0].strip() if row[0] and re.match(r'\d+', row[0].strip()) else None
                         nama_barang = row[2].strip() if row[2] else ""
-                        if pending_no and not nama_barang:  # Jika nomor urut ada tapi belum ada barangnya
-                            continue  # Lewati baris ini dan tunggu barang di baris berikutnya
-                        elif pending_no and nama_barang:
-                            current_no = pending_no  # Gunakan nomor urut yang tertunda
-                            pending_no = None  # Reset pending nomor
                         
-                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', nama_barang)
+                        if nomor_urut:
+                            pending_no = nomor_urut  # Simpan nomor urut
+                            pending_data[pending_no] = [nomor_urut, no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, "", 0, "", 0.0, 0.0, 0.0, 0.0]
                         
-                        if harga_qty_info:
-                            harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
-                            qty = float(harga_qty_info.group(2).replace('.', '').replace(',', '.'))
-                            unit = harga_qty_info.group(3)
-                        else:
-                            harga, qty, unit = 0.0, 0.0, "Unknown"
-                        
-                        total = harga * qty
-                        ppn = round(total * 0.11, 2)
-                        dpp = total - ppn
-                        
-                        if previous_row and (row[0] is None or not row[0].strip().isdigit()):  # Jika baris tanpa nomor urut, gabungkan dengan sebelumnya
-                            previous_row[5] += " " + nama_barang
-                        else:
-                            previous_row = [current_no, no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn]
-                            data.append(previous_row)
+                        if pending_no and nama_barang:
+                            pending_data[pending_no][5] += " " + nama_barang
+                            harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', nama_barang)
+                            if harga_qty_info:
+                                harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
+                                qty = float(harga_qty_info.group(2).replace('.', '').replace(',', '.'))
+                                unit = harga_qty_info.group(3)
+                                total = harga * qty
+                                ppn = round(total * 0.11, 2)
+                                dpp = total - ppn
+                                pending_data[pending_no][6] = qty
+                                pending_data[pending_no][7] = unit
+                                pending_data[pending_no][8] = harga
+                                pending_data[pending_no][9] = total
+                                pending_data[pending_no][10] = dpp
+                                pending_data[pending_no][11] = ppn
     
-    return data
+    return list(pending_data.values())
 
 def login_page():
     users = {
