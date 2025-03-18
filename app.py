@@ -46,8 +46,14 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             table = page.extract_table()
             if table:
                 for row in table:
-                  if len(row) >= 4 and row[0] and row[0].isdigit():  # Baris baru dengan nomor urut
-    nama_barang = row[2] if len(row) > 2 and row[2] else "Tidak ditemukan"
+                 if len(row) > 2:  # Pastikan row memiliki setidaknya 3 elemen
+    nama_barang = row[2] if row[2] else "Tidak ditemukan"
+
+    # Hapus teks "Nama Barang Kena Pajak / Jasa Kena Pajak" dari nama barang
+    nama_barang = re.sub(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*', '', nama_barang, flags=re.IGNORECASE)
+
+    print(nama_barang)  # Debugging untuk memastikan hasilnya benar
+
 
     # Hapus teks "Nama Barang Kena Pajak / Jasa Kena Pajak"
     nama_barang = re.sub(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*', '', nama_barang, flags=re.IGNORECASE)
