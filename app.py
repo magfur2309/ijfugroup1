@@ -59,10 +59,25 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
         unit = harga_qty_info.group(3)
     else:
         harga, qty, unit = 0.0, 0.0, "Unknown"
-    
+
     total = harga * qty
     ppn = round(total * 0.11, 2)
     dpp = total - ppn
+
+    data.append([
+        no_fp or "Tidak ditemukan", 
+        nama_penjual or "Tidak ditemukan", 
+        nama_pembeli or "Tidak ditemukan", 
+        tanggal_faktur, 
+        nama_barang, 
+        qty, 
+        unit, 
+        harga, 
+        total, 
+        dpp, 
+        ppn
+    ])
+
 
     data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", 
                  nama_pembeli or "Tidak ditemukan", tanggal_faktur, 
