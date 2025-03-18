@@ -23,6 +23,7 @@ def find_invoice_date(pdf_file):
 def extract_data_from_pdf(pdf_file, tanggal_faktur):
     data = []
     no_fp, nama_penjual, nama_pembeli = None, None, None
+    previous_row = None
     
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
@@ -44,10 +45,10 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             table = page.extract_table()
             if table:
                 for row in table:
-                    if len(row) >= 4 and row[0].isdigit():
-                        nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+', '', row[2]).strip()
+                    if len(row) >= 4:
+                        nama_barang = row[2].strip() if row[2] else ""
+                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', nama_barang)
                         
-                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                         if harga_qty_info:
                             harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
                             qty = float(harga_qty_info.group(2).replace('.', '').replace(',', '.'))
@@ -58,7 +59,14 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         total = harga * qty
                         ppn = round(total * 0.11, 2)
                         dpp = total - ppn
-                        data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn])
+
+                        if not row[0].isdigit():  # Jika tidak ada nomor urut, berarti lanjutan data sebelumnya
+                            if previous_row:
+                                previous_row[4] += " " + nama_barang  # Gabungkan nama barang
+                        else:
+                            previous_row = [no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn]
+                            data.append(previous_row)
+                            previous_row = None  # Reset setelah menambah
     return data
 
 def login_page():
