@@ -23,6 +23,7 @@ def find_invoice_date(pdf_file):
 def extract_data_from_pdf(pdf_file, tanggal_faktur):
     data = []
     no_fp, nama_penjual, nama_pembeli = None, None, None
+    current_no = None  # Menyimpan nomor urut terakhir yang valid
     previous_row = None
     
     with pdfplumber.open(pdf_file) as pdf:
@@ -45,8 +46,11 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             table = page.extract_table()
             if table:
                 for row in table:
-                    if len(row) >= 4 and row[2]:
-                        nama_barang = row[2].strip()
+                    if len(row) >= 4:
+                        if row[0] and row[0].isdigit():  # Jika nomor urut valid ditemukan
+                            current_no = row[0].strip()
+                        
+                        nama_barang = row[2].strip() if row[2] else ""
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', nama_barang)
                         
                         if harga_qty_info:
@@ -59,16 +63,13 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         total = harga * qty
                         ppn = round(total * 0.11, 2)
                         dpp = total - ppn
-                        if previous_row and (row[0] is None or not row[0].strip().isdigit()):
+                        
+                        if previous_row and not row[0]:  # Jika baris tanpa nomor urut, gabungkan
                             previous_row[4] += " " + nama_barang
                         else:
-                            previous_row = [no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn]
+                            previous_row = [current_no, no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn]
                             data.append(previous_row)
-                    elif previous_row and len(row) > 2 and row[2]:
-                        previous_row[4] += " " + row[2].strip()
-    
-    # Menyaring hanya data dari No 1 hingga No 43
-    return data[:43]
+    return data
 
 def login_page():
     users = {
@@ -102,7 +103,7 @@ def main_app():
             all_data.extend(extracted_data)
         
         if all_data:
-            df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Tanggal Faktur", "Nama Barang", "Qty", "Satuan", "Harga", "Total", "DPP", "PPN"])
+            df = pd.DataFrame(all_data, columns=["No", "No FP", "Nama Penjual", "Nama Pembeli", "Tanggal Faktur", "Nama Barang", "Qty", "Satuan", "Harga", "Total", "DPP", "PPN"])
             df.index += 1  
             
             df[["Qty", "Harga", "Total", "DPP", "PPN"]] = df[["Qty", "Harga", "Total", "DPP", "PPN"]].applymap(lambda x: f"{x:.2f}")
