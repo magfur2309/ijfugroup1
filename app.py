@@ -45,7 +45,8 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             if table:
                 for row in table:
                     if row and row[0] and re.match(r'^\d+$', row[0]):
-                        nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+.*', '', row[2]).strip()
+                        nama_barang = re.sub(r'Tanggal:\s*\d{2}/\d{2}/\d{4}', '', row[2]).strip()
+                        nama_barang = re.sub(r'PPnBM \(\d+,?\d*%\) = Rp [\d.,]+', '', nama_barang).strip()
                         nama_barang = re.sub(r'Potongan Harga = Rp [\d.,]+', '', nama_barang).strip()
                         
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
@@ -62,9 +63,9 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         else:
                             potongan_harga = 0.0
                         
-                        total = (harga * qty) - potongan_harga
+                        total = round((harga * qty) - potongan_harga, 2)
                         ppn = round(total * 0.11, 2)
-                        dpp = total - ppn
+                        dpp = round(total - ppn, 2)
                         data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, potongan_harga, total, dpp, ppn])
     return data
 
