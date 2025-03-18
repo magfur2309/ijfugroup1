@@ -22,29 +22,25 @@ def find_invoice_date(pdf_file):
     return "Tidak ditemukan"
 
 def extract_data_from_pdf(pdf_file, tanggal_faktur):
-    """Ekstraksi data faktur pajak dari PDF, mengatasi tabel terpotong dengan Lookahead."""
+    """Ekstraksi data faktur pajak dari PDF, dengan perbaikan lookahead."""
     data = []
     no_fp, nama_penjual, nama_pembeli = None, None, None
-    last_incomplete_row = None  # Simpan baris yang terpotong
-    prev_text = ""  # Simpan teks halaman sebelumnya
+    last_incomplete_row = None  # Buffer untuk data yang terpotong
 
     with pdfplumber.open(pdf_file) as pdf:
-        for i, page in enumerate(pdf.pages):
+        for page in pdf.pages:
             text = page.extract_text()
             if text:
-                full_text = prev_text + "\n" + text  # Gabungkan teks halaman sebelumnya dengan halaman sekarang
-                prev_text = text  # Simpan untuk halaman berikutnya
-                
                 # Ekstraksi informasi faktur
-                no_fp_match = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', full_text)
+                no_fp_match = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
                 if no_fp_match:
                     no_fp = no_fp_match.group(1)
                 
-                penjual_match = re.search(r'Nama\s*:\s*([\w\s\-.,&()]+)\nAlamat', full_text)
+                penjual_match = re.search(r'Nama\s*:\s*([\w\s\-.,&()]+)\nAlamat', text)
                 if penjual_match:
                     nama_penjual = penjual_match.group(1).strip()
                 
-                pembeli_match = re.search(r'Pembeli.*?:\s*Nama\s*:\s*([\w\s\-.,&()]+)\nAlamat', full_text)
+                pembeli_match = re.search(r'Pembeli.*?:\s*Nama\s*:\s*([\w\s\-.,&()]+)\nAlamat', text)
                 if pembeli_match:
                     nama_pembeli = pembeli_match.group(1).strip()
                     nama_pembeli = re.sub(r'\bAlamat\b', '', nama_pembeli, flags=re.IGNORECASE).strip()
@@ -57,31 +53,29 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         nama_barang = row[2] if row[2] else ""
                         nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+.*', '', nama_barang).strip()
 
-                        # Periksa jika baris ini kemungkinan kelanjutan dari halaman sebelumnya
+                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2] if row[2] else "")
+                        if harga_qty_info:
+                            harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
+                            qty = float(harga_qty_info.group(2).replace('.', '').replace(',', '.'))
+                            unit = harga_qty_info.group(3)
+                        else:
+                            harga, qty, unit = 0.0, 0.0, "Unknown"
+                        
+                        total = harga * qty
+                        ppn = round(total * 0.11, 2)
+                        dpp = total - ppn
+
+                        # Jika ada baris yang belum lengkap, gabungkan ke data ini
                         if last_incomplete_row:
                             last_incomplete_row[4] += " " + nama_barang
-                            data.append(last_incomplete_row)  # Masukkan kembali ke data
-                            last_incomplete_row = None  # Reset buffer
-
+                            data.append(last_incomplete_row)
+                            last_incomplete_row = None
                         else:
-                            harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2] if row[2] else "")
-                            if harga_qty_info:
-                                harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
-                                qty = float(harga_qty_info.group(2).replace('.', '').replace(',', '.'))
-                                unit = harga_qty_info.group(3)
-                            else:
-                                harga, qty, unit = 0.0, 0.0, "Unknown"
-                            
-                            total = harga * qty
-                            ppn = round(total * 0.11, 2)
-                            dpp = total - ppn
-                            
-                            # Simpan data sementara untuk lookahead
                             last_incomplete_row = [no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan",
                                                    nama_pembeli or "Tidak ditemukan", tanggal_faktur,
                                                    nama_barang, qty, unit, harga, total, dpp, ppn]
 
-                # Jika masih ada baris yang belum lengkap, simpan untuk halaman berikutnya
+                # Jika halaman sudah selesai, masukkan buffer ke data
                 if last_incomplete_row:
                     data.append(last_incomplete_row)
                     last_incomplete_row = None
