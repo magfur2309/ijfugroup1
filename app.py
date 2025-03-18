@@ -47,7 +47,7 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             if table:
                 for row in table:
                     if len(row) >= 4:
-                        if row[0] and row[0].isdigit():  # Jika nomor urut valid ditemukan
+                        if row[0] and row[0].strip().isdigit():  # Jika nomor urut valid ditemukan
                             current_no = row[0].strip()
                         
                         nama_barang = row[2].strip() if row[2] else ""
@@ -64,8 +64,9 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         ppn = round(total * 0.11, 2)
                         dpp = total - ppn
                         
-                        if previous_row and not row[0]:  # Jika baris tanpa nomor urut, gabungkan
-                            previous_row[4] += " " + nama_barang
+                        if row[0] is None or not row[0].strip().isdigit():  # Jika baris tanpa nomor urut, gabungkan dengan sebelumnya
+                            if previous_row:
+                                previous_row[5] += " " + nama_barang
                         else:
                             previous_row = [current_no, no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn]
                             data.append(previous_row)
