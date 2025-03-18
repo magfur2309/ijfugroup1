@@ -66,7 +66,9 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                             data.append(previous_row)
                     elif previous_row and len(row) > 2 and row[2]:
                         previous_row[4] += " " + row[2].strip()
-    return data
+    
+    # Menyaring hanya data dari No 1 hingga No 43
+    return data[:43]
 
 def login_page():
     users = {
