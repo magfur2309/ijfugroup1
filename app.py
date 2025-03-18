@@ -65,6 +65,8 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         else:
                             previous_row = [no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn]
                             data.append(previous_row)
+                    elif previous_row and row[2]:  # Jika ada nama barang yang terputus ke halaman berikutnya
+                        previous_row[4] += " " + row[2].strip()
     return data
 
 def login_page():
