@@ -49,11 +49,11 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                         if harga_qty_info:
-                            harga = int(float(harga_qty_info.group(1).replace('.', '').replace(',', '.')))
-                            qty = int(float(harga_qty_info.group(2).replace('.', '').replace(',', '.')))
+                            harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
+                            qty = float(harga_qty_info.group(2).replace('.', '').replace(',', '.'))
                             unit = harga_qty_info.group(3)
                         else:
-                            harga, qty, unit = 0, 0, "Unknown"
+                            harga, qty, unit = 0.0, 0.0, "Unknown"
                         
                         total = harga * qty
                         ppn = round(total * 0.11, 2)
@@ -95,8 +95,13 @@ def main_app():
         if all_data:
             df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Tanggal Faktur", "Nama Barang", "Qty", "Satuan", "Harga", "Total", "DPP", "PPN"])
             df.index += 1  
+            
+            # Format angka menjadi 2 desimal
+            df[["Qty", "Harga", "Total", "DPP", "PPN"]] = df[["Qty", "Harga", "Total", "DPP", "PPN"]].applymap(lambda x: f"{x:.2f}")
+            
             st.write("### Pratinjau Data yang Diekstrak")
             st.dataframe(df)
+            
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 df.to_excel(writer, index=True, sheet_name='Faktur Pajak')
