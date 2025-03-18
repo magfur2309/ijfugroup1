@@ -6,7 +6,6 @@ import re
 import hashlib
 
 def find_invoice_date(pdf_file):
-    """Menemukan tanggal faktur dalam PDF."""
     month_map = {
         "Januari": "01", "Februari": "02", "Maret": "03", "April": "04", "Mei": "05", "Juni": "06", 
         "Juli": "07", "Agustus": "08", "September": "09", "Oktober": "10", "November": "11", "Desember": "12"
@@ -22,16 +21,13 @@ def find_invoice_date(pdf_file):
     return "Tidak ditemukan"
 
 def extract_data_from_pdf(pdf_file, tanggal_faktur):
-    """Ekstraksi data faktur pajak dari PDF, dengan perbaikan lookahead."""
     data = []
     no_fp, nama_penjual, nama_pembeli = None, None, None
-    last_incomplete_row = None  # Buffer untuk data yang terpotong
-
+    
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
             if text:
-                # Ekstraksi informasi faktur
                 no_fp_match = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
                 if no_fp_match:
                     no_fp = no_fp_match.group(1)
@@ -44,16 +40,17 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                 if pembeli_match:
                     nama_pembeli = pembeli_match.group(1).strip()
                     nama_pembeli = re.sub(r'\bAlamat\b', '', nama_pembeli, flags=re.IGNORECASE).strip()
-
-            # Ekstraksi tabel
+            
             table = page.extract_table()
             if table:
                 for row in table:
-                    if row and row[0] and re.match(r'^\d+$', row[0]):  # Pastikan ini baris data barang
-                        nama_barang = row[2] if row[2] else ""
-                        nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+.*', '', nama_barang).strip()
-
-                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2] if row[2] else "")
+                    if row and row[0] and re.match(r'^\d+$', row[0]):
+                        nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+.*', '', row[2]).strip()
+                        nama_barang = re.sub(r'Potongan Harga = Rp [\d.,]+', '', nama_barang).strip()
+                        nama_barang = re.sub(r'PPnBM \(\d+,?\d*%\) = Rp [\d.,]+', '', nama_barang).strip()
+                        nama_barang = re.sub(r'Tanggal:\s*\d{2}/\d{2}/\d{4}', '', nama_barang).strip()
+                        
+                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                         if harga_qty_info:
                             harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
                             qty = float(harga_qty_info.group(2).replace('.', '').replace(',', '.'))
@@ -64,26 +61,10 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         total = harga * qty
                         ppn = round(total * 0.11, 2)
                         dpp = total - ppn
-
-                        # Jika ada baris yang belum lengkap, gabungkan ke data ini
-                        if last_incomplete_row:
-                            last_incomplete_row[4] += " " + nama_barang
-                            data.append(last_incomplete_row)
-                            last_incomplete_row = None
-                        else:
-                            last_incomplete_row = [no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan",
-                                                   nama_pembeli or "Tidak ditemukan", tanggal_faktur,
-                                                   nama_barang, qty, unit, harga, total, dpp, ppn]
-
-                # Jika halaman sudah selesai, masukkan buffer ke data
-                if last_incomplete_row:
-                    data.append(last_incomplete_row)
-                    last_incomplete_row = None
-
+                        data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn])
     return data
 
 def login_page():
-    """Halaman login sederhana dengan hash password."""
     users = {
         "user1": hashlib.sha256("ijfugroup1".encode()).hexdigest(),
         "user2": hashlib.sha256("ijfugroup2".encode()).hexdigest()
@@ -104,7 +85,6 @@ def login_page():
             st.error("Username atau password salah")
 
 def main_app():
-    """Aplikasi utama untuk mengunggah dan mengonversi faktur pajak PDF ke Excel."""
     st.title("Convert Faktur Pajak PDF To Excel")
     uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF, bisa lebih dari satu)", type=["pdf"], accept_multiple_files=True)
     
