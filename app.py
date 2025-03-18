@@ -46,20 +46,28 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             table = page.extract_table()
             if table:
                 for row in table:
-                    if len(row) >= 4 and row[0] and row[0].isdigit():  # Pastikan data valid
-                        nama_barang = row[2] if len(row) > 2 and row[2] else "Tidak ditemukan"
-                        
-                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', nama_barang)
-                        if harga_qty_info:
-                            harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
-                            qty = float(harga_qty_info.group(2).replace('.', '').replace(',', '.'))
-                            unit = harga_qty_info.group(3)
-                        else:
-                            harga, qty, unit = 0.0, 0.0, "Unknown"
-                        
-                        total = harga * qty
-                        ppn = round(total * 0.11, 2)
-                        dpp = total - ppn
+                   if len(row) >= 4 and row[0] and row[0].isdigit():  # Baris baru dengan nomor urut
+    nama_barang = row[2] if len(row) > 2 and row[2] else "Tidak ditemukan"
+
+    # Hapus teks "Nama Barang Kena Pajak / Jasa Kena Pajak"
+    nama_barang = re.sub(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*', '', nama_barang, flags=re.IGNORECASE)
+
+    harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', nama_barang)
+    if harga_qty_info:
+        harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
+        qty = float(harga_qty_info.group(2).replace('.', '').replace(',', '.'))
+        unit = harga_qty_info.group(3)
+    else:
+        harga, qty, unit = 0.0, 0.0, "Unknown"
+    
+    total = harga * qty
+    ppn = round(total * 0.11, 2)
+    dpp = total - ppn
+
+    data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", 
+                 nama_pembeli or "Tidak ditemukan", tanggal_faktur, 
+                 nama_barang, qty, unit, harga, total, dpp, ppn])
+
                         
                         # Jika baris sebelumnya belum lengkap, gabungkan
                         if incomplete_row:
