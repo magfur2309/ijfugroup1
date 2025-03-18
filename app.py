@@ -45,6 +45,7 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             if table:
                 for row in table:
                     if len(row) >= 4 and row[0].isdigit():
+                        print(f"Processing row: {row}")  # Debugging: Tampilkan baris yang sedang diproses
                         nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+', '', row[2]).strip()
                         
                         # Ekstrak harga, qty, dan unit
