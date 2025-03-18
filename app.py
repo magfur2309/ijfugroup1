@@ -59,14 +59,12 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         total = harga * qty
                         ppn = round(total * 0.11, 2)
                         dpp = total - ppn
-
-                        if not row[0].isdigit():  # Jika tidak ada nomor urut, berarti lanjutan data sebelumnya
+                        if row[0] is None or not row[0].strip().isdigit():  # Jika nomor urut kosong, berarti lanjutan
                             if previous_row:
-                                previous_row[4] += " " + nama_barang  # Gabungkan nama barang
+                                previous_row[4] += " " + nama_barang  # Gabungkan nama barang dari halaman sebelumnya
                         else:
                             previous_row = [no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn]
                             data.append(previous_row)
-                            previous_row = None  # Reset setelah menambah
     return data
 
 def login_page():
@@ -104,7 +102,6 @@ def main_app():
             df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Tanggal Faktur", "Nama Barang", "Qty", "Satuan", "Harga", "Total", "DPP", "PPN"])
             df.index += 1  
             
-            # Format angka menjadi 2 desimal
             df[["Qty", "Harga", "Total", "DPP", "PPN"]] = df[["Qty", "Harga", "Total", "DPP", "PPN"]].applymap(lambda x: f"{x:.2f}")
             
             st.write("### Pratinjau Data yang Diekstrak")
