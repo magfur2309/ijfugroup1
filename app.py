@@ -23,11 +23,8 @@ def find_invoice_date(pdf_file):
 def extract_data_from_pdf(pdf_file, tanggal_faktur):
     data = []
     no_fp, nama_penjual, nama_pembeli = None, None, None
-    pending_no = None  # Menyimpan nomor urut yang belum memiliki data barang
-    pending_data = {}  # Menyimpan data yang terpisah agar dapat digabungkan
-    
     with pdfplumber.open(pdf_file) as pdf:
-        for page_num, page in enumerate(pdf.pages):
+        for page in pdf.pages:
             text = page.extract_text()
             if text:
                 no_fp_match = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
@@ -49,29 +46,16 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                     if len(row) >= 4:
                         nomor_urut = row[0].strip() if row[0] and re.match(r'\d+', row[0].strip()) else None
                         nama_barang = row[2].strip() if row[2] else ""
+                        harga = row[3].strip() if row[3] else ""
+                        qty = row[4].strip() if row[4] else ""
+                        satuan = row[5].strip() if row[5] else ""
+                        total = row[6].strip() if row[6] else ""
+                        dpp = row[7].strip() if row[7] else ""
+                        ppn = row[8].strip() if row[8] else ""
                         
                         if nomor_urut:
-                            pending_no = nomor_urut  # Simpan nomor urut
-                            pending_data[pending_no] = [nomor_urut, no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, "", 0, "", 0.0, 0.0, 0.0, 0.0]
-                        
-                        if pending_no and nama_barang:
-                            pending_data[pending_no][5] += " " + nama_barang
-                            harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', nama_barang)
-                            if harga_qty_info:
-                                harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
-                                qty = float(harga_qty_info.group(2).replace('.', '').replace(',', '.'))
-                                unit = harga_qty_info.group(3)
-                                total = harga * qty
-                                ppn = round(total * 0.11, 2)
-                                dpp = total - ppn
-                                pending_data[pending_no][6] = qty
-                                pending_data[pending_no][7] = unit
-                                pending_data[pending_no][8] = harga
-                                pending_data[pending_no][9] = total
-                                pending_data[pending_no][10] = dpp
-                                pending_data[pending_no][11] = ppn
-    
-    return list(pending_data.values())
+                            data.append([nomor_urut, no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, satuan, harga, total, dpp, ppn])
+    return data
 
 def login_page():
     users = {
@@ -107,8 +91,6 @@ def main_app():
         if all_data:
             df = pd.DataFrame(all_data, columns=["No", "No FP", "Nama Penjual", "Nama Pembeli", "Tanggal Faktur", "Nama Barang", "Qty", "Satuan", "Harga", "Total", "DPP", "PPN"])
             df.index += 1  
-            
-            df[["Qty", "Harga", "Total", "DPP", "PPN"]] = df[["Qty", "Harga", "Total", "DPP", "PPN"]].applymap(lambda x: f"{x:.2f}")
             
             st.write("### Pratinjau Data yang Diekstrak")
             st.dataframe(df)
