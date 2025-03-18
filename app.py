@@ -46,10 +46,10 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             table = page.extract_table()
             if table:
                 for row in table:
-                    if len(row) >= 4 and row[0].isdigit():
-                        nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+', '', row[2]).strip()
+                    if len(row) >= 4 and row[0] and row[0].isdigit():  # Pastikan data valid
+                        nama_barang = row[2] if len(row) > 2 and row[2] else "Tidak ditemukan"
                         
-                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
+                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', nama_barang)
                         if harga_qty_info:
                             harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
                             qty = float(harga_qty_info.group(2).replace('.', '').replace(',', '.'))
@@ -80,9 +80,11 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         # Jika baris tidak lengkap, simpan sementara
                         incomplete_row = [no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", 
                                           nama_pembeli or "Tidak ditemukan", tanggal_faktur, 
-                                          row[2], 0, "Unknown", 0, 0, 0, 0]  # Data sementara
+                                          row[2] if len(row) > 2 and row[2] else "Tidak ditemukan", 
+                                          0, "Unknown", 0, 0, 0, 0]  # Data sementara
                 
     return data
+
 
 def login_page():
     users = {
