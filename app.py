@@ -23,6 +23,7 @@ def find_invoice_date(pdf_file):
 def extract_data_from_pdf(pdf_file, tanggal_faktur):
     data = []
     no_fp, nama_penjual, nama_pembeli = None, None, None
+    
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
@@ -39,32 +40,26 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                 if pembeli_match:
                     nama_pembeli = pembeli_match.group(1).strip()
                     nama_pembeli = re.sub(r'\bAlamat\b', '', nama_pembeli, flags=re.IGNORECASE).strip()
-
-            # Perbaikan indentasi pada bagian ini
+            
             table = page.extract_table()
             if table:
                 for row in table:
-                    if len(row) < 9:  # Pastikan baris memiliki setidaknya 9 kolom
-                        continue  # Lewati baris yang tidak lengkap
-
-                    nomor_urut = row[0].strip() if len(row) > 0 and row[0] else ""
-                    nama_barang = row[2].strip() if len(row) > 2 and row[2] else ""
-                    harga = row[3].strip() if len(row) > 3 and row[3] else ""
-                    qty = row[4].strip() if len(row) > 4 and row[4] else ""
-                    satuan = row[5].strip() if len(row) > 5 and row[5] else ""
-                    total = row[6].strip() if len(row) > 6 and row[6] else ""
-                    dpp = row[7].strip() if len(row) > 7 and row[7] else ""
-                    ppn = row[8].strip() if len(row) > 8 and row[8] else ""
-
-                    if nomor_urut:
-                        data.append([
-                            nomor_urut, no_fp or "Tidak ditemukan", 
-                            nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", 
-                            tanggal_faktur, nama_barang, qty, satuan, harga, total, dpp, ppn
-                        ])
-
+                    if len(row) >= 4 and row[0].isdigit():
+                        nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+', '', row[2]).strip()
+                        
+                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
+                        if harga_qty_info:
+                            harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
+                            qty = float(harga_qty_info.group(2).replace('.', '').replace(',', '.'))
+                            unit = harga_qty_info.group(3)
+                        else:
+                            harga, qty, unit = 0.0, 0.0, "Unknown"
+                        
+                        total = harga * qty
+                        ppn = round(total * 0.11, 2)
+                        dpp = total - ppn
+                        data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn])
     return data
-
 
 def login_page():
     users = {
@@ -98,8 +93,11 @@ def main_app():
             all_data.extend(extracted_data)
         
         if all_data:
-            df = pd.DataFrame(all_data, columns=["No", "No FP", "Nama Penjual", "Nama Pembeli", "Tanggal Faktur", "Nama Barang", "Qty", "Satuan", "Harga", "Total", "DPP", "PPN"])
+            df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Tanggal Faktur", "Nama Barang", "Qty", "Satuan", "Harga", "Total", "DPP", "PPN"])
             df.index += 1  
+            
+            # Format angka menjadi 2 desimal
+            df[["Qty", "Harga", "Total", "DPP", "PPN"]] = df[["Qty", "Harga", "Total", "DPP", "PPN"]].applymap(lambda x: f"{x:.2f}")
             
             st.write("### Pratinjau Data yang Diekstrak")
             st.dataframe(df)
