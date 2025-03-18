@@ -23,11 +23,13 @@ def find_invoice_date(pdf_file):
 def extract_data_from_pdf(pdf_file, tanggal_faktur):
     data = []
     no_fp, nama_penjual, nama_pembeli = None, None, None
+    incomplete_row = None  # Untuk menyimpan baris yang belum lengkap
     
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
             if text:
+                # Ekstraksi data header (No FP, Nama Penjual, Nama Pembeli)
                 no_fp_match = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
                 if no_fp_match:
                     no_fp = no_fp_match.group(1)
@@ -58,8 +60,30 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         total = harga * qty
                         ppn = round(total * 0.11, 2)
                         dpp = total - ppn
-                        data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn])
+                        
+                        # Jika baris sebelumnya belum lengkap, gabungkan
+                        if incomplete_row:
+                            incomplete_row[4] += f" {nama_barang}"  # Gabungkan Nama Barang
+                            incomplete_row[5] += qty
+                            incomplete_row[7] += harga
+                            incomplete_row[8] += total
+                            incomplete_row[9] += dpp
+                            incomplete_row[10] += ppn
+                            data.append(incomplete_row)
+                            incomplete_row = None
+                        else:
+                            # Simpan sebagai baris baru
+                            data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", 
+                                         nama_pembeli or "Tidak ditemukan", tanggal_faktur, 
+                                         nama_barang, qty, unit, harga, total, dpp, ppn])
+                    else:
+                        # Jika baris tidak lengkap, simpan sementara
+                        incomplete_row = [no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", 
+                                          nama_pembeli or "Tidak ditemukan", tanggal_faktur, 
+                                          row[2], 0, "Unknown", 0, 0, 0, 0]  # Data sementara
+                
     return data
+
 def login_page():
     users = {
         "user1": hashlib.sha256("ijfugroup1".encode()).hexdigest(),
