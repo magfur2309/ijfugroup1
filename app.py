@@ -23,7 +23,9 @@ def find_invoice_date(pdf_file):
 def extract_data_from_pdf(pdf_file, tanggal_faktur):
     data = []
     no_fp, nama_penjual, nama_pembeli = None, None, None
-    
+    data_found = False  
+    warnings = []  
+
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
@@ -31,25 +33,34 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                 no_fp_match = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
                 if no_fp_match:
                     no_fp = no_fp_match.group(1)
-                
+                else:
+                    warnings.append("Nomor Faktur Pajak tidak ditemukan.")
+
                 penjual_match = re.search(r'Nama\s*:\s*([\w\s\-.,&()]+)\nAlamat', text)
                 if penjual_match:
                     nama_penjual = penjual_match.group(1).strip()
-                
+                else:
+                    warnings.append("Nama Penjual tidak ditemukan.")
+
                 pembeli_match = re.search(r'Pembeli.*?:\s*Nama\s*:\s*([\w\s\-.,&()]+)\nAlamat', text)
                 if pembeli_match:
                     nama_pembeli = pembeli_match.group(1).strip()
                     nama_pembeli = re.sub(r'\bAlamat\b', '', nama_pembeli, flags=re.IGNORECASE).strip()
-            
+                else:
+                    warnings.append("Nama Pembeli tidak ditemukan.")
+
             table = page.extract_table()
             if table:
                 for row in table:
                     if row and row[0] and re.match(r'^\d+$', row[0]):
+                        data_found = True  
+
+                        # Ambil nama barang dengan menghilangkan harga & potongan
                         nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+.*', '', row[2]).strip()
-                        nama_barang = re.sub(r'Potongan Harga = Rp [\d.,]+', '', nama_barang).strip()
                         nama_barang = re.sub(r'PPnBM \(\d+,?\d*%\) = Rp [\d.,]+', '', nama_barang).strip()
                         nama_barang = re.sub(r'Tanggal:\s*\d{2}/\d{2}/\d{4}', '', nama_barang).strip()
                         
+                        # Ambil harga, qty, dan satuan
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                         if harga_qty_info:
                             harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
@@ -57,12 +68,24 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                             unit = harga_qty_info.group(3)
                         else:
                             harga, qty, unit = 0.0, 0.0, "Unknown"
-                        
-                        total = harga * qty
+
+                        # Ambil potongan harga
+                        potongan_match = re.search(r'Potongan Harga = Rp ([\d.,]+)', row[2])
+                        if potongan_match:
+                            potongan = float(potongan_match.group(1).replace('.', '').replace(',', '.'))
+                        else:
+                            potongan = 0.0
+
+                        # Hitung total, DPP, dan PPN setelah potongan
+                        total = (harga * qty) - potongan
                         ppn = round(total * 0.11, 2)
                         dpp = total - ppn
-                        data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn])
-    return data
+
+                        data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", 
+                                     nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, 
+                                     qty, unit, harga, potongan, total, dpp, ppn])
+
+    return data, warnings  
 
 def login_page():
     users = {
