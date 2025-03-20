@@ -44,6 +44,7 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             table = page.extract_table()
             if table:
                 for row in table:
+                    # Hanya proses baris jika kolom pertama adalah nomor urut (angka)
                     if row and row[0] and re.match(r'^\d+$', row[0]):
                         nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+.*', '', row[2]).strip()
                         nama_barang = re.sub(r'Potongan Harga = Rp [\d.,]+', '', nama_barang).strip()
