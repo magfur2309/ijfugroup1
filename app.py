@@ -67,11 +67,11 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         else:
                             harga, qty, unit = 0.0, 0.0, "Unknown"
                         
-                        # Total dihitung sebagai harga * qty
-                        total = harga * qty
+                        # Total dihitung sebagai harga * qty - potongan harga
+                        total = harga * qty - potongan
                         
-                        # DPP dihitung dengan membagi harga jual yang sudah termasuk PPN dengan 1,11
-                        dpp = total / 1.11  # Menggunakan harga total termasuk PPN dibagi 1,11
+                        # DPP dihitung dengan membagi total yang sudah dipotong harga dengan 1,1
+                        dpp = total / 1.1  # Menggunakan total yang sudah dipotong harga
                         
                         # PPN dihitung sebagai selisih antara total dan DPP
                         ppn = total - dpp
