@@ -49,7 +49,8 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             table = page.extract_table()
             if table:
                 for row in table:
-                    if row and row[0] and re.match(r'^\d+$', row[0]):
+                    # Make sure row has at least 10 columns before accessing them
+                    if row and len(row) >= 10 and row[0] and re.match(r'^\d+$', row[0]):
                         item_key = row[0]  # Extracting item number to check continuity
                         
                         if item_key == last_item_key:
