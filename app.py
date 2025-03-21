@@ -70,13 +70,12 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         # Total dihitung sebagai harga * qty - potongan harga
                         total = harga * qty - potongan
                         
-                        # DPP dihitung dengan membagi total yang sudah dipotong harga dengan 1,1
-                        # Perhitungan DPP yang benar
-                        dpp = total / (1 + 0.11)  # Menggunakan harga total yang sudah termasuk PPN dibagi 1.11 untuk PPN 11%
-
+                        # DPP dihitung dengan membagi total yang sudah dipotong harga dengan 1 + tarif PPN (11% atau 0.11)
+                        dpp = total / (1 + 0.11)
                         
                         # PPN dihitung sebagai selisih antara total dan DPP
                         ppn = total - dpp
+
                         
                         # Menambahkan data ke dalam list
                         data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, potongan, total, dpp, ppn])
