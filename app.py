@@ -23,11 +23,13 @@ def find_invoice_date(pdf_file):
 def extract_data_from_pdf(pdf_file, tanggal_faktur):
     data = []
     no_fp, nama_penjual, nama_pembeli = None, None, None
+    item_buffer = []  # Menyimpan item yang terputus antar halaman
     
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
             if text:
+                # Ambil informasi tetap seperti no_fp, nama_penjual, nama_pembeli, dll.
                 no_fp_match = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
                 if no_fp_match:
                     no_fp = no_fp_match.group(1)
@@ -41,24 +43,29 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                     nama_pembeli = pembeli_match.group(1).strip()
                     nama_pembeli = re.sub(r'\bAlamat\b', '', nama_pembeli, flags=re.IGNORECASE).strip()
             
-            # Ekstraksi Tabel
+            # Ekstraksi Tabel dan menangani baris yang terputus antar halaman
             table = page.extract_table()
             if table:
                 for row in table:
-                    # Hanya proses baris jika kolom pertama adalah nomor urut (angka)
                     if row and row[0] and re.match(r'^\d+$', row[0]):
-                        nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+.*', '', row[2]).strip()
+                        # Menangani item terputus, simpan sementara pada buffer
+                        item_buffer.append(row)
+
+            # Gabungkan item yang terputus dengan item baru jika ada
+            if item_buffer:
+                for row in item_buffer:
+                    nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+.*', '', row[2]).strip()
                         nama_barang = re.sub(r'Potongan Harga = Rp [\d.,]+', '', nama_barang).strip()
                         nama_barang = re.sub(r'PPnBM \(\d+,?\d*%\) = Rp [\d.,]+', '', nama_barang).strip()
                         nama_barang = re.sub(r'Tanggal:\s*\d{2}/\d{2}/\d{4}', '', nama_barang).strip()
-                        
+
                         # Menangkap Potongan Harga
                         potongan_match = re.search(r'Potongan Harga = Rp ([\d.,]+)', row[2])
                         if potongan_match:
                             potongan = float(potongan_match.group(1).replace('.', '').replace(',', '.'))
                         else:
                             potongan = 0.0
-                        
+
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                         if harga_qty_info:
                             harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
@@ -66,19 +73,22 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                             unit = harga_qty_info.group(3)
                         else:
                             harga, qty, unit = 0.0, 0.0, "Unknown"
-                        
+
                         # Total dihitung sebagai harga * qty - potongan harga
                         total = harga * qty - potongan
-                        
-                        # DPP dihitung dengan membagi total yang sudah dipotong harga dengan 1 + tarif PPN (11% atau 0.11)
-                        dpp = total / (1 + 0.11)
-                        
+
+                        # DPP dihitung dengan membagi total yang sudah dipotong harga dengan 1,1
+                        dpp = total / (1 + 0.11)  # Menggunakan harga total yang sudah termasuk PPN dibagi 1.11 untuk PPN 11%
+
                         # PPN dihitung sebagai selisih antara total dan DPP
                         ppn = total - dpp
 
-                        
                         # Menambahkan data ke dalam list
                         data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, potongan, total, dpp, ppn])
+                
+                # Reset buffer setelah item diproses
+                item_buffer = []
+
     return data
 
 def login_page():
