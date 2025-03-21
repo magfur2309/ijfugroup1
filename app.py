@@ -71,7 +71,9 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         total = harga * qty - potongan
                         
                         # DPP dihitung dengan membagi total yang sudah dipotong harga dengan 1,1
-                        dpp = total / 1.1  # Menggunakan total yang sudah dipotong harga
+                        # Perhitungan DPP yang benar
+                        dpp = total / (1 + 0.11)  # Menggunakan harga total yang sudah termasuk PPN dibagi 1.11 untuk PPN 11%
+
                         
                         # PPN dihitung sebagai selisih antara total dan DPP
                         ppn = total - dpp
