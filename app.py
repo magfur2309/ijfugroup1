@@ -93,9 +93,9 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         # PPN dihitung sebagai selisih antara total dan DPP
                         ppn = total - dpp
 
-                        # Debugging untuk memastikan No. 33 terbaca dengan benar
+                        # Debugging untuk memastikan No. 33 terbaca dengan benar dan menggabungkan barang dengan nama yang sama
                         if "KRAH, HITAM RTV" in nama_barang:
-                            st.write(f"Debug - No. 33: {nama_barang}, Harga: {harga}, Kuantitas: {qty}, Total: {total}, DPP: {dpp}, PPN: {ppn}")
+                            st.write(f"Debug - Item: {nama_barang}, Harga: {harga}, Kuantitas: {qty}, Total: {total}, DPP: {dpp}, PPN: {ppn}")
                         
                         # Menambahkan data ke dalam list
                         data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, potongan, total, dpp, ppn])
