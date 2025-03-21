@@ -41,6 +41,7 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                     nama_pembeli = pembeli_match.group(1).strip()
                     nama_pembeli = re.sub(r'\bAlamat\b', '', nama_pembeli, flags=re.IGNORECASE).strip()
             
+            # Ekstraksi Tabel
             table = page.extract_table()
             if table:
                 for row in table:
@@ -51,6 +52,13 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         nama_barang = re.sub(r'PPnBM \(\d+,?\d*%\) = Rp [\d.,]+', '', nama_barang).strip()
                         nama_barang = re.sub(r'Tanggal:\s*\d{2}/\d{2}/\d{4}', '', nama_barang).strip()
                         
+                        # Menangkap Potongan Harga
+                        potongan_match = re.search(r'Potongan Harga = Rp ([\d.,]+)', row[2])
+                        if potongan_match:
+                            potongan = float(potongan_match.group(1).replace('.', '').replace(',', '.'))
+                        else:
+                            potongan = 0.0
+                        
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                         if harga_qty_info:
                             harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
@@ -59,10 +67,11 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         else:
                             harga, qty, unit = 0.0, 0.0, "Unknown"
                         
+                        # Total dan DPP
                         total = harga * qty
-                        ppn = round(total * 0.11, 2)
-                        dpp = total - ppn
-                        data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn])
+                        dpp = total - potongan
+                        ppn = round(dpp * 0.11, 2)  # PPN dihitung berdasarkan DPP yang sudah dipotong
+                        data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, potongan, total, dpp, ppn])
     return data
 
 def login_page():
@@ -97,7 +106,7 @@ def main_app():
             all_data.extend(extracted_data)
         
         if all_data:
-            df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Tanggal Faktur", "Nama Barang", "Qty", "Satuan", "Harga", "Total", "DPP", "PPN"])
+            df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Tanggal Faktur", "Nama Barang", "Qty", "Satuan", "Harga", "Potongan", "Total", "DPP", "PPN"])
             df.index += 1  
             
             st.write("### Pratinjau Data yang Diekstrak")
