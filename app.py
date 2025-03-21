@@ -25,6 +25,7 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
     no_fp, nama_penjual, nama_pembeli = None, None, None
     item_buffer = []  # Menyimpan item yang terputus antar halaman
     last_row = None   # Menyimpan baris terakhir untuk pengecekan
+    last_item = {}  # Menyimpan informasi barang untuk penggabungan
     
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
@@ -49,16 +50,18 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             if table:
                 for row in table:
                     if row and row[0] and re.match(r'^\d+$', row[0]):
-                        if last_row and last_row[0] == row[0]:
-                            # Jika baris sebelumnya memiliki nomor urut yang sama, gabungkan
-                            last_row[2] += ' ' + row[2]  # Menggabungkan nama barang
-                            continue  # Lewati baris yang sudah digabung
+                        item_key = row[2]  # Menyimpan nama barang untuk referensi penggabungan
                         
-                        # Proses item baru
+                        if last_item and last_item['key'] == item_key:
+                            # Jika nama barang sama dengan yang ada pada buffer, gabungkan dengan data yang ada
+                            last_item['row'][2] += ' ' + row[2]  # Gabungkan nama barang
+                            continue  # Lewati baris yang sudah digabungkan
+                        
+                        # Jika data terputus, simpan ke buffer sementara
                         item_buffer.append(row)
-                        last_row = row
-
-                # Gabungkan item yang terputus dengan item baru jika ada
+                        last_item = {'key': item_key, 'row': row}  # Menyimpan data barang yang terputus
+                        
+                # Proses dan gabungkan item yang terpotong dengan item baru jika ada
                 if item_buffer:
                     for row in item_buffer:
                         nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+.*', '', row[2]).strip()
@@ -95,7 +98,7 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                 
                 # Reset buffer setelah item diproses
                 item_buffer = []
-                last_row = None
+                last_item = None
 
     return data
 
