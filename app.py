@@ -60,10 +60,9 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         
                         total = harga * qty
                         dpp = round(total * 11 / 12, 2)
-                        ppn = round(dpp * 12 / 100, 2)
+                        ppn = round(dpp * 0.12, 2)
                         data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn])
     return data
-
 
 def login_page():
     users = {
