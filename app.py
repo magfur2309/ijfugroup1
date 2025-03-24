@@ -51,16 +51,6 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         nama_barang = re.sub(r'Tanggal:\s*\d{2}/\d{2}/\d{4}', '', nama_barang).strip()
                         
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
-                       # Ekstraksi Potongan Harga
-                        potongan = 0.0  # Default value for potongan
-                        
-                        # Menangkap Potongan Harga
-                        potongan_match = re.search(r'Potongan Harga = Rp ([\d.,]+)', row[2])
-                        if potongan_match:
-                            potongan = float(potongan_match.group(1).replace('.', '').replace(',', '.'))
-                        
-                        # Harga dan Qty
-                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                         if harga_qty_info:
                             harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
                             qty = float(harga_qty_info.group(2).replace('.', '').replace(',', '.'))
@@ -68,22 +58,10 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         else:
                             harga, qty, unit = 0.0, 0.0, "Unknown"
                         
-                        # Total dihitung sebagai harga * qty - potongan harga
-                        total = harga * qty - potongan
-                        
-                        # Pastikan total tidak negatif atau 0
-                        if total > 0:
-                            # DPP dihitung dengan total dikali 11 dan dibagi 12
-                            dpp = total * 11 / 12  # Menggunakan rumus DPP yang baru
-                        
-                            # PPN dihitung dengan DPP dikali 12%
-                            ppn = dpp * 0.12  # Menggunakan rumus PPN yang baru
-                        else:
-                            dpp = 0
-                            ppn = 0
-                        
-                        # Menambahkan data ke dalam list
-                        data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, potongan, total, dpp, ppn])
+                        total = harga * qty
+                        ppn = round(total * 0.11, 2)
+                        dpp = total - ppn
+                        data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn])
     return data
 
 def login_page():
