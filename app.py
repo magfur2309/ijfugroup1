@@ -23,6 +23,7 @@ def find_invoice_date(pdf_file):
 def extract_data_from_pdf(pdf_file, tanggal_faktur):
     data = []
     no_fp, nama_penjual, nama_pembeli = None, None, None
+    previous_item = None  # Menyimpan item dari baris sebelumnya
     
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
@@ -45,11 +46,15 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             if table:
                 for row in table:
                     if row and row[0] and re.match(r'^\d+$', row[0]):
+                        # Periksa apakah nama barang terpotong
                         nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+.*', '', row[2]).strip()
                         nama_barang = re.sub(r'Potongan Harga = Rp [\d.,]+', '', nama_barang).strip()
                         nama_barang = re.sub(r'PPnBM \(\d+,?\d*%\) = Rp [\d.,]+', '', nama_barang).strip()
                         nama_barang = re.sub(r'Tanggal:\s*\d{2}/\d{2}/\d{4}', '', nama_barang).strip()
-                        
+
+                        if not nama_barang:  # Jika nama barang kosong, gunakan nama barang dari baris sebelumnya
+                            nama_barang = previous_item
+
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                         if harga_qty_info:
                             harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
@@ -62,7 +67,10 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         dpp = round(total * 11 / 12, 2)  # Perubahan rumus DPP
                         ppn = round(dpp * 0.12, 2)  # Perubahan rumus PPN
                         data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, total, dpp, ppn])
+                        
+                        previous_item = nama_barang  # Simpan nama barang untuk baris berikutnya
     return data
+
 
 
 def login_page():
