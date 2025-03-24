@@ -84,18 +84,18 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         else:
                             harga, qty, unit = 0.0, 0.0, "Unknown"
 
-                        # Total dihitung sebagai harga * qty - potongan harga
-                        total = harga * qty - potongan
+                     # Total dihitung sebagai harga * qty - potongan harga
+                    total = harga * qty - potongan
+                    
+                    # DPP dihitung dengan total dikali 11 dan dibagi 12
+                    dpp = total * 11 / 12  # Menggunakan rumus DPP yang baru
+                    
+                    # PPN dihitung dengan DPP dikali 12%
+                    ppn = dpp * 0.12  # Menggunakan rumus PPN yang baru
+                    
+                    # Menambahkan data ke dalam list
+                    data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, potongan, total, dpp, ppn])
 
-                        # DPP dihitung dengan membagi total yang sudah dipotong harga dengan 1,1
-                        dpp = total / (1 + 0.11)  # Menggunakan harga total yang sudah termasuk PPN dibagi 1.11 untuk PPN 11%
-
-                        # PPN dihitung sebagai selisih antara total dan DPP
-                        ppn = total - dpp
-
-                        # Menambahkan data ke dalam list
-                        data.append([no_fp or "Tidak ditemukan", nama_penjual or "Tidak ditemukan", nama_pembeli or "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, potongan, total, dpp, ppn])
-                
                 # Reset buffer setelah item diproses
                 item_buffer = []
                 last_item = None
