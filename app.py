@@ -6,10 +6,8 @@ import re
 import hashlib
 
 def find_invoice_date(pdf_file):
-    month_map = {
-        "Januari": "01", "Februari": "02", "Maret": "03", "April": "04", "Mei": "05", "Juni": "06", 
-        "Juli": "07", "Agustus": "08", "September": "09", "Oktober": "10", "November": "11", "Desember": "12"
-    }
+    month_map = {"Januari": "01", "Februari": "02", "Maret": "03", "April": "04", "Mei": "05", "Juni": "06", 
+                 "Juli": "07", "Agustus": "08", "September": "09", "Oktober": "10", "November": "11", "Desember": "12"}
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
@@ -45,18 +43,10 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             table = page.extract_table()
             if table:
                 for row in table:
-                    if row and row[0] and re.match(r'^\d+$', row[0]):
+                    if row and len(row) > 2 and row[0] and re.match(r'^\d+$', row[0]):
                         nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+.*', '', row[2]).strip()
-                        nama_barang = re.sub(r'Potongan Harga = Rp [\d.,]+', '', nama_barang).strip()
-                        nama_barang = re.sub(r'PPnBM \(\d+,?\d*%\) = Rp [\d.,]+', '', nama_barang).strip()
-                        nama_barang = re.sub(r'Tanggal:\s*\d{2}/\d{2}/\d{4}', '', nama_barang).strip()
-
-                        if not nama_barang:
-                            nama_barang = previous_item
-
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
-                        potongan_match = re.search(r'Potongan Harga = Rp ([\d.,]+)', row[2])
-
+                        
                         if harga_qty_info:
                             harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
                             qty = float(harga_qty_info.group(2).replace('.', '').replace(',', '.'))
@@ -64,9 +54,7 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         else:
                             harga, qty, unit = 0.0, 0.0, "Unknown"
                         
-                        potongan = float(potongan_match.group(1).replace('.', '').replace(',', '.')) if potongan_match else 0.0
-
-                        total = (harga * qty) - potongan
+                        total = harga * qty
                         dpp = round(total * 11 / 12, 2)
                         ppn = round(dpp * 0.12, 2)
 
@@ -79,12 +67,10 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                             qty,
                             unit,
                             harga,
-                            potongan,  # Menambahkan kolom Potongan
                             total,
                             dpp,
                             ppn
                         ])
-                        
                         previous_item = nama_barang  
     return data
 
@@ -120,7 +106,7 @@ def main_app():
             all_data.extend(extracted_data)
         
         if all_data:
-            df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Tanggal Faktur", "Nama Barang", "Qty", "Satuan", "Harga", "Potongan", "Total", "DPP", "PPN"])
+            df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Tanggal Faktur", "Nama Barang", "Qty", "Satuan", "Harga", "Total", "DPP", "PPN"])
             df.index += 1  
             
             st.write("### Pratinjau Data yang Diekstrak")
