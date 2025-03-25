@@ -23,8 +23,8 @@ def find_invoice_date(pdf_file):
 def extract_data_from_pdf(pdf_file, tanggal_faktur):
     data = []
     no_fp, nama_penjual, nama_pembeli = None, None, None
-    previous_item = None  # Menyimpan item dari baris sebelumnya
-    partial_row = None  # Menyimpan data yang terpotong
+    previous_item = None  
+    partial_row = None  
 
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
@@ -43,63 +43,53 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                     nama_pembeli = pembeli_match.group(1).strip()
                     nama_pembeli = re.sub(r'\bAlamat\b', '', nama_pembeli, flags=re.IGNORECASE).strip()
 
-            table = page.extract_table()
+            table = page.extract_table({"vertical_strategy": "lines", "horizontal_strategy": "lines"})
             if table:
                 for row in table:
+                    # Jika row kosong atau tidak memiliki nomor urut, itu bagian dari item sebelumnya
+                    if row and (not row[0] or not re.match(r'^\d+$', row[0])):
+                        if partial_row:
+                            partial_row[4] += " " + row[2].strip()  # Gabungkan nama barang
+                            continue  # Lewati agar tidak diproses lagi
+                    
+                    # Jika ini adalah baris baru yang lengkap
                     if row and row[0] and re.match(r'^\d+$', row[0]):
                         nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+.*', '', row[2]).strip()
-                        nama_barang = re.sub(r'Potongan Harga = Rp [\d.,]+', '', nama_barang).strip()
-                        nama_barang = re.sub(r'PPnBM \(\d+,?\d*%\) = Rp [\d.,]+', '', nama_barang).strip()
-                        nama_barang = re.sub(r'Tanggal:\s*\d{2}/\d{2}/\d{4}', '', nama_barang).strip()
-
-                        if not nama_barang:
-                            nama_barang = previous_item
-
-                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                         potongan_match = re.search(r'Potongan Harga = Rp ([\d.,]+)', row[2])
+                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
 
+                        harga, qty, unit = 0.0, 0.0, "Unknown"
                         if harga_qty_info:
                             harga = float(harga_qty_info.group(1).replace('.', '').replace(',', '.'))
                             qty = float(harga_qty_info.group(2).replace('.', '').replace(',', '.'))
                             unit = harga_qty_info.group(3)
-                        else:
-                            harga, qty, unit = 0.0, 0.0, "Unknown"
 
                         potongan = float(potongan_match.group(1).replace('.', '').replace(',', '.')) if potongan_match else 0.0
                         total = (harga * qty) - potongan
                         dpp = round(total * 11 / 12, 2)
                         ppn = round(dpp * 0.12, 2)
 
-                        # Periksa jika ada data yang terpotong di halaman sebelumnya
-                        if partial_row:
-                            partial_row[4] += " " + nama_barang  # Gabungkan nama barang yang terpotong
-                            partial_row[8] = potongan  # Update nilai potongan jika ada
-                            partial_row[9] = total  # Update total yang sesuai
-                            partial_row[10] = dpp  # Update DPP
-                            partial_row[11] = ppn  # Update PPN
-                            data.append(partial_row)
-                            partial_row = None
+                        new_row = [
+                            no_fp or "Tidak ditemukan",
+                            nama_penjual or "Tidak ditemukan",
+                            nama_pembeli or "Tidak ditemukan",
+                            tanggal_faktur,
+                            nama_barang,
+                            qty,
+                            unit,
+                            harga,
+                            potongan,
+                            total,
+                            dpp,
+                            ppn
+                        ]
+                        
+                        # Simpan sebagai partial_row jika kemungkinan besar terpotong
+                        if row[-1] is None or row[-1] == "":
+                            partial_row = new_row
                         else:
-                            data.append([
-                                no_fp or "Tidak ditemukan",
-                                nama_penjual or "Tidak ditemukan",
-                                nama_pembeli or "Tidak ditemukan",
-                                tanggal_faktur,
-                                nama_barang,
-                                qty,
-                                unit,
-                                harga,
-                                potongan,
-                                total,
-                                dpp,
-                                ppn
-                            ])
-
-                        previous_item = nama_barang  
-
-                    elif row and row[0] is None:  # Deteksi jika ini adalah kelanjutan data terpotong
-                        partial_row = data.pop()  # Ambil baris sebelumnya yang tidak lengkap
-                        partial_row[4] += " " + row[2].strip()  # Gabungkan nama barang yang terpotong
+                            data.append(new_row)
+                            partial_row = None  # Reset partial_row
 
     return data
 
