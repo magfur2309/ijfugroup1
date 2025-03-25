@@ -23,36 +23,40 @@ def find_invoice_date(pdf_file):
 def extract_data_from_pdf(pdf_file, tanggal_faktur):
     data = []
     no_fp, nama_penjual, nama_pembeli = None, None, None
-    previous_item = None  
+    previous_item = None
     partial_row = None  
 
     with pdfplumber.open(pdf_file) as pdf:
-        for page in pdf.pages:
+        for i, page in enumerate(pdf.pages):
             text = page.extract_text()
             if text:
+                # Ambil No FP
                 no_fp_match = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
                 if no_fp_match:
                     no_fp = no_fp_match.group(1)
 
+                # Ambil Nama Penjual
                 penjual_match = re.search(r'Nama\s*:\s*([\w\s\-.,&()]+)\nAlamat', text)
                 if penjual_match:
                     nama_penjual = penjual_match.group(1).strip()
 
+                # Ambil Nama Pembeli
                 pembeli_match = re.search(r'Pembeli.*?:\s*Nama\s*:\s*([\w\s\-.,&()]+)\nAlamat', text)
                 if pembeli_match:
                     nama_pembeli = pembeli_match.group(1).strip()
                     nama_pembeli = re.sub(r'\bAlamat\b', '', nama_pembeli, flags=re.IGNORECASE).strip()
 
+            # Ekstrak tabel
             table = page.extract_table({"vertical_strategy": "lines", "horizontal_strategy": "lines"})
             if table:
                 for row in table:
-                    # Jika row kosong atau tidak memiliki nomor urut, itu bagian dari item sebelumnya
+                    # Jika baris tanpa nomor, itu adalah kelanjutan dari sebelumnya
                     if row and (not row[0] or not re.match(r'^\d+$', row[0])):
                         if partial_row:
                             partial_row[4] += " " + row[2].strip()  # Gabungkan nama barang
-                            continue  # Lewati agar tidak diproses lagi
+                            continue  
                     
-                    # Jika ini adalah baris baru yang lengkap
+                    # Jika ini baris baru dengan nomor urut
                     if row and row[0] and re.match(r'^\d+$', row[0]):
                         nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+.*', '', row[2]).strip()
                         potongan_match = re.search(r'Potongan Harga = Rp ([\d.,]+)', row[2])
@@ -90,8 +94,24 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         else:
                             data.append(new_row)
                             partial_row = None  # Reset partial_row
+                        
+                # **Cari kelanjutan data di halaman berikutnya**
+                if partial_row and i + 1 < len(pdf.pages):
+                    next_page_text = pdf.pages[i + 1].extract_text()
+                    if next_page_text:
+                        potongan_lanjutan = re.search(r'Potongan Harga = Rp ([\d.,]+)', next_page_text)
+                        if potongan_lanjutan:
+                            partial_row[8] = float(potongan_lanjutan.group(1).replace('.', '').replace(',', '.'))
+                            partial_row[9] = (partial_row[7] * partial_row[5]) - partial_row[8]
+                            partial_row[10] = round(partial_row[9] * 11 / 12, 2)
+                            partial_row[11] = round(partial_row[10] * 0.12, 2)
+                    
+                    # Tambahkan kembali ke data setelah dilengkapi
+                    data.append(partial_row)
+                    partial_row = None  
 
     return data
+
 
 def login_page():
     users = {
