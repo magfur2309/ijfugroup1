@@ -1,9 +1,12 @@
 import streamlit as st
 import fitz  # PyMuPDF
+from io import BytesIO
 
 # Function to extract text from PDF
 def extract_text_from_pdf(pdf_file):
-    doc = fitz.open(pdf_file)
+    # Convert the uploaded file to a file-like object
+    pdf_bytes = BytesIO(pdf_file.read())
+    doc = fitz.open(pdf_bytes)
     text = ""
     for page_num in range(doc.page_count):
         page = doc.load_page(page_num)
