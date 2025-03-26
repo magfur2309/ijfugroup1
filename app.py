@@ -61,7 +61,11 @@ def main():
             st.dataframe(extracted_data)
             
             # Provide option to download the extracted data as an Excel file
-            excel_file = extracted_data.to_excel(index=False, engine="openpyxl")
+            excel_file = io.BytesIO()
+            with pd.ExcelWriter(excel_file, engine="openpyxl") as writer:
+                extracted_data.to_excel(writer, index=False, sheet_name="Extracted Data")
+            
+            excel_file.seek(0)
             st.download_button(
                 label="Download Excel file",
                 data=excel_file,
