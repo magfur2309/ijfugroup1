@@ -5,13 +5,13 @@ import io
 def extract_text_from_pdf(uploaded_file):
     # Read the uploaded file into bytes
     pdf_bytes = uploaded_file.read()
-    
+
     # Ensure the file is a valid PDF by checking the magic bytes (%PDF)
     if pdf_bytes[:4] != b'%PDF':
         raise ValueError("Not a valid PDF file")
     
     # Open the PDF from bytes using fitz (PyMuPDF)
-    doc = fitz.open(io.BytesIO(pdf_bytes))  # Use BytesIO to handle the byte data
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")  # Correct way to use the byte stream
 
     # Extract text from each page in the PDF
     text = ""
