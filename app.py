@@ -1,6 +1,8 @@
 import streamlit as st
 import fitz  # PyMuPDF
 import io
+import re
+import pandas as pd
 
 def extract_text_from_pdf(uploaded_file):
     # Read the uploaded file into bytes
@@ -21,6 +23,25 @@ def extract_text_from_pdf(uploaded_file):
 
     return text
 
+# Function to extract relevant data (No, Item Name, Quantity, and Price) from the extracted text
+def extract_relevant_data(text):
+    # Regex pattern to capture the required information: No, Item Name, Quantity, and Price
+    pattern = r"(\d+)\s([A-Za-z0-9\s]+)\s(\d+)\s(?:[xX])\s?([\d,.]+)\s?(?:Kilogram|Katalog|Rp\s[\d,.]+)?"
+    
+    # Find all matches based on the regex pattern
+    matches = re.findall(pattern, text)
+    
+    # Create a DataFrame with extracted data
+    data = {
+        "No": [match[0] for match in matches],
+        "Item Name": [match[1].strip() for match in matches],
+        "Quantity": [match[2] for match in matches],
+        "Price": [match[3] for match in matches]
+    }
+    
+    df = pd.DataFrame(data)
+    return df
+
 def main():
     st.title("PDF Text Extractor")
     
@@ -32,8 +53,21 @@ def main():
             # Extract text from the PDF
             text = extract_text_from_pdf(uploaded_file)
             
-            # Display the extracted text
-            st.text_area("Extracted Text", text, height=300)
+            # Extract relevant data (No, Item Name, Quantity, Price)
+            extracted_data = extract_relevant_data(text)
+            
+            # Display the extracted data in a table
+            st.write("Extracted Data:")
+            st.dataframe(extracted_data)
+            
+            # Provide option to download the extracted data as an Excel file
+            excel_file = extracted_data.to_excel(index=False, engine="openpyxl")
+            st.download_button(
+                label="Download Excel file",
+                data=excel_file,
+                file_name="extracted_data.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
         except Exception as e:
             st.error(f"Error: {str(e)}")
 
